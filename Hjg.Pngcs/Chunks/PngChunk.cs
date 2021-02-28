@@ -91,31 +91,31 @@ namespace Hjg.Pngcs.Chunks {
             this.Offset = 0;
         }
 
-        private static Dictionary<String, Type> factoryMap = initFactory();
+        private static Dictionary<String, Func<ImageInfo, PngChunk>> factoryMap = initFactory();
 
-        private static Dictionary<String, Type> initFactory() {
-            Dictionary<String, Type> f = new Dictionary<string, System.Type>();
-            f.Add(ChunkHelper.IDAT, typeof(PngChunkIDAT));
-            f.Add(ChunkHelper.IHDR, typeof(PngChunkIHDR));
-            f.Add(ChunkHelper.PLTE, typeof(PngChunkPLTE));
-            f.Add(ChunkHelper.IEND, typeof(PngChunkIEND));
-            f.Add(ChunkHelper.tEXt, typeof(PngChunkTEXT));
-            f.Add(ChunkHelper.iTXt, typeof(PngChunkITXT));
-            f.Add(ChunkHelper.zTXt, typeof(PngChunkZTXT));
-            f.Add(ChunkHelper.bKGD, typeof(PngChunkBKGD));
-            f.Add(ChunkHelper.gAMA, typeof(PngChunkGAMA));
-            f.Add(ChunkHelper.pHYs, typeof(PngChunkPHYS));
-            f.Add(ChunkHelper.iCCP, typeof(PngChunkICCP));
-            f.Add(ChunkHelper.tIME, typeof(PngChunkTIME));
-            f.Add(ChunkHelper.tRNS, typeof(PngChunkTRNS));
-            f.Add(ChunkHelper.cHRM, typeof(PngChunkCHRM));
-            f.Add(ChunkHelper.sBIT, typeof(PngChunkSBIT));
-            f.Add(ChunkHelper.sRGB, typeof(PngChunkSRGB));
-            f.Add(ChunkHelper.hIST, typeof(PngChunkHIST));
-            f.Add(ChunkHelper.sPLT, typeof(PngChunkSPLT));
+        private static Dictionary<String, Func<ImageInfo, PngChunk>> initFactory() {
+            Dictionary<String, Func<ImageInfo, PngChunk>> f = new Dictionary<string, Func<ImageInfo, PngChunk>>();
+            f.Add(ChunkHelper.IDAT, info => new PngChunkIDAT(info));
+            f.Add(ChunkHelper.IHDR, info => new PngChunkIHDR(info));
+            f.Add(ChunkHelper.PLTE, info => new PngChunkPLTE(info));
+            f.Add(ChunkHelper.IEND, info => new PngChunkIEND(info));
+            f.Add(ChunkHelper.tEXt, info => new PngChunkTEXT(info));
+            f.Add(ChunkHelper.iTXt, info => new PngChunkITXT(info));
+            f.Add(ChunkHelper.zTXt, info => new PngChunkZTXT(info));
+            f.Add(ChunkHelper.bKGD, info => new PngChunkBKGD(info));
+            f.Add(ChunkHelper.gAMA, info => new PngChunkGAMA(info));
+            f.Add(ChunkHelper.pHYs, info => new PngChunkPHYS(info));
+            f.Add(ChunkHelper.iCCP, info => new PngChunkICCP(info));
+            f.Add(ChunkHelper.tIME, info => new PngChunkTIME(info));
+            f.Add(ChunkHelper.tRNS, info => new PngChunkTRNS(info));
+            f.Add(ChunkHelper.cHRM, info => new PngChunkCHRM(info));
+            f.Add(ChunkHelper.sBIT, info => new PngChunkSBIT(info));
+            f.Add(ChunkHelper.sRGB, info => new PngChunkSRGB(info));
+            f.Add(ChunkHelper.hIST, info => new PngChunkHIST(info));
+            f.Add(ChunkHelper.sPLT, info => new PngChunkSPLT(info));
             // extended
-            f.Add(PngChunkOFFS.ID, typeof(PngChunkOFFS));
-            f.Add(PngChunkSTER.ID, typeof(PngChunkSTER));
+            f.Add(PngChunkOFFS.ID, info => new PngChunkOFFS(info));
+            f.Add(PngChunkSTER.ID, info => new PngChunkSTER(info));
             return f;
         }
 
@@ -128,7 +128,13 @@ namespace Hjg.Pngcs.Chunks {
         /// <param name="chunkId"></param>
         /// <param name="type">should extend PngChunkSingle or PngChunkMultiple</param>
         public static void FactoryRegister(String chunkId, Type type) {
-            factoryMap.Add(chunkId, type);
+            factoryMap.Add(chunkId, info => {
+                    System.Reflection.ConstructorInfo cons = type.GetConstructor(new Type[] { typeof(ImageInfo) });
+                    if (cons == null) {
+                        return null;
+                    }
+                    return (PngChunk)(cons.Invoke(new object[] { info }));
+                });
         }
 
         internal static bool isKnown(String id) {
@@ -164,14 +170,12 @@ namespace Hjg.Pngcs.Chunks {
             PngChunk chunk = null;
             if (factoryMap == null) initFactory();
             if (isKnown(cid)) {
-                Type t = factoryMap[cid];
-                if (t == null) Console.Error.WriteLine("What?? " + cid);
-                System.Reflection.ConstructorInfo cons = t.GetConstructor(new Type[] { typeof(ImageInfo) });
-                object o = cons.Invoke(new object[] { info });
-                chunk = (PngChunk)o;
+                chunk = factoryMap[cid](info);
             }
-            if (chunk == null)
+            if (chunk == null) {
+                Console.WriteLine("unknown chunk " + cid);
                 chunk = new PngChunkUNKNOWN(cid, info);
+            }
 
             return chunk;
         }

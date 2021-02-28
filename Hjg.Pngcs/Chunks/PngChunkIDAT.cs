@@ -15,6 +15,9 @@ namespace Hjg.Pngcs.Chunks {
     public class PngChunkIDAT : PngChunkMultiple {
         public const String ID = ChunkHelper.IDAT;
 
+        public PngChunkIDAT(ImageInfo i) : base(ID, i) {
+        }
+
         public PngChunkIDAT(ImageInfo i,int len, long offset)
             : base(ID, i) {
             this.Length = len;
